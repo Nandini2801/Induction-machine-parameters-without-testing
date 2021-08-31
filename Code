@@ -1,0 +1,262 @@
+clc; clear; close all;
+%% Problem Definition
+CostFunction=@(x) Induction_motor(x);	% Cost Function
+% V = 460;
+% f = 60;
+% P = 4;
+% Tst = 715.62;
+% Tmax = 894.52;
+% Tfl = 118.03;
+% PF = 0.99;
+% S = 0.021;
+% i = 144.1;
+nVar=5;		% Number of Decision Variables VarSize=[1 nVar];	
+% Size of Decision Variables Matrix 
+VarMin=0;	% Lower Bound of Variables
+VarMax= 100;	% Upper Bound of Variables
+%% PSO Parameters
+MaxIt=1000;	% Maximum Number of Iterations nPop=100;	% Population Size (Swarm Size)
+% PSO Parameters
+w=1;	% Inertia Weight
+wdamp=0.99;	% Inertia Weight Damping Ratio
+ 
+c1=1.5;	% Personal Learning Coefficient 
+c2=2.0;	% Global Learning Coefficient
+% Velocity Limits 
+VelMax=0.1*(VarMax-VarMin); 
+VelMin=-VelMax;
+%% Initialization 
+empty_particle.Position=[]; 
+empty_particle.Cost=[]; 
+empty_particle.Velocity=[]; 
+empty_particle.Best.Position=[]; 
+empty_particle.Best.Cost=[]; 
+particle=repmat(empty_particle,nPop,1); 
+GlobalBest.Cost=inf;
+for i=1:nPop
+
+% Initialize Position 
+particle(i).Position=unifrnd(VarMin,VarMax,VarSize);
+
+% Initialize Velocity 
+particle(i).Velocity=zeros(VarSize);
+
+% Evaluation 
+particle(i).Cost=CostFunction(particle(i).Position);
+
+% Update Personal Best 
+particle(i).Best.Position=particle(i).Position; 
+particle(i).Best.Cost=particle(i).Cost;
+
+% Update Global Best
+if particle(i).Best.Cost<GlobalBest.Cost GlobalBest=particle(i).Best;
+end
+
+end
+BestCost=zeros(MaxIt,1);
+%% PSO Main Loop for it=1:MaxIt
+
+for i=1:nPop
+
+% Update Velocity
+particle(i).Velocity = w*particle(i).Velocity ...
+
++c1*rand(VarSize).*(particle(i).Best.Position- particle(i).Position) ...
+ 
++c2*rand(VarSize).*(GlobalBest.Position- particle(i).Position);
+
+% Apply Velocity Limits particle(i).Velocity =
+max(particle(i).Velocity,VelMin); particle(i).Velocity =
+min(particle(i).Velocity,VelMax);
+
+% Update Position
+particle(i).Position = particle(i).Position + particle(i).Velocity;
+
+% Velocity Mirror Effect 
+IsOutside=(particle(i).Position<VarMin |
+particle(i).Position>VarMax); particle(i).Velocity(IsOutside)=-
+particle(i).Velocity(IsOutside);
+
+% Apply Position Limits 
+particle(i).Position =
+max(particle(i).Position,VarMin); particle(i).Position =
+min(particle(i).Position,VarMax);
+
+% Evaluation
+particle(i).Cost =
+CostFunction(particle(i).Position);
+
+% Update Personal Best
+if particle(i).Cost<particle(i).Best.Cost
+
+particle(i).Best.Position=particle(i).Position;
+particle(i).Best.Cost=particle(i).Cost;
+
+% Update Global Best
+if particle(i).Best.Cost<GlobalBest.Cost GlobalBest=particle(i).Best;
+ 
+
+
+
+end
+ 
+
+end
+ 
+end
+ 
+
+BestCost(it)=GlobalBest.Cost;
+ 
+disp(['Iteration ' num2str(it) ': Best Cost = ' num2str(BestCost(it))]);
+
+w=w*wdamp;
+
+end
+BestSol = GlobalBest; 
+disp("Xs"); 
+disp(BestSol.Position(1));
+disp("Xr"); 
+disp(BestSol.Position(2)); 
+disp("Rs"); 
+disp(BestSol.Position(3)); 
+disp("Rr"); 
+disp(BestSol.Position(4)); 
+disp("Xm"); 
+disp(BestSol.Position(5)); 
+x = BestSol.Position;
+%% Results figure;
+plot(BestCost,'LineWidth',2);
+%semilogy(BestCost,'LineWidth',2); 
+xlabel('Iteration');
+ylabel('Best Cost'); 
+grid on;
+%% Analysis 
+R1= x(4) ;
+R2= x(3);
+X1= x(1);
+X2= x(2);
+Rc= inf; 
+Xm= x(5);
+% Original Values
+R1_act = 1.083;
+R2_act = 1.115;
+X1_act = 1.126;
+X2_act = 1.126;
+Xm_act = 38.4;
+
+Vt= 460; 
+E=Vt;  
+f=60; 
+P=4;
+ns=120*f/(P*60); 
+s=0:0.01:1;
+ws = pi*2*f/P;
+ 
+Vth = Vt.*Xm/(X1 + Xm); 
+Rth = R2*Xm/(Xm + X1); 
+Xth = Xm*X1/(X1 + Xm); 
+kt = 3*Vth^2/ws;
+Vth_act = Vt.*Xm_act/(X1_act + Xm_act); 
+Rth_act = R2_act*Xm_act/(Xm_act + X1_act); 
+Xth_act = Xm_act*X1_act/(X1_act + Xm_act); 
+kt_act = 3*Vth_act^2/ws;
+j = sqrt(-1); 
+S=0.021;
+T = (kt.*R1./(s.*((Rth + R1./s).^2 + (Xth + X2)^2))); 
+T_act = (kt_act.*R1_act./(s.*((Rth_act + R1_act./s).^2 + (Xth_act + X2_act)^2)));
+I = Vth./(Rth +(R1./s) + (Xth + X2)*j);
+I_act = Vth_act./(Rth_act +(R1_act./s) + (Xth_act + X2_act)*j);
+Tfl = kt.*R1./(S.*((Rth + R1./S).^2 + (Xth + X2)^2)); 
+disp("Full load torque");
+disp(Tfl);
+Tst = (kt.*R1/(((Rth + R1)^2 + (Xth + X2).^2)));
+
+disp("Starting Torque"); disp(Tst);
+Tmax = (kt/(2*(Rth + sqrt(Rth^2 +(Xth + X2).^2)))); 
+disp("Maximum Torque");
+disp(Tmax);
+Pfl = cos(atan((Xth + X2)./(Rth + R1./S))); 
+disp("PF at full load");
+disp(Pfl); 
+figure;
+plot(s,T); 
+xlabel('slip'); 
+ylabel('slip torque in N-m'); 
+grid on; 
+title('slip torque characteristics');
+set(gca, 'XDir', 'reverse'); 
+hold on
+plot(s,T_act);
+legend("Estimated Curve Using PSO Data","Real curve using Original Data");
+hold off figure;
+plot(s,abs(I));
+xlabel('slip'); 
+ylabel('Current in A'); 
+grid on; 
+title('slip torque characteristics'); 
+set(gca, 'XDir', 'reverse');
+hold on plot(s,abs(I_act));
+legend("Estimated Curve Using PSO Data","Real curve using Original Data");
+hold off
+ 
+% Performance analysis of the given motor S_r=0:0.0001:0.021;
+
+j=sqrt(-1); Zf=1./((1/(j*Xm))+(1./((R2./S_r)+j*X2)));
+Zin=R1+j*X1+Zf; I1=Vt./(sqrt(3).*Zin);
+Pin=sqrt(3)*Vt.*abs(I1).*cos(angle(I1)); Rf=real(Zf);
+Pg=3*abs(I1).*abs(I1).*Rf; Pm=(1.-S_r).*Pg;
+Prout=250-3*7*7*R1; Pout=Pm-Prout; 
+eff=Pout./Pin; PF=cos(angle(I1)); 
+plot(Pout/1000,S_r) 
+xlabel('output power KW'); 
+ylabel('slip');
+grid;
+title('Slip torque characteristics'),	xlim([0	8]),
+ylim([0 0.1]);		
+figure;		
+plot(Pout/1000,eff)		
+xlabel('output power KW')		
+ylabel('efficiency');		
+grid;		
+title('Slip torque characteristics'),	xlim([0	8]),
+ylim([0 1]);		
+figure;		
+plot(Pout/1000,abs(I1))		
+xlabel('output power KW');		
+ylabel('current in A');		
+grid;		
+title('Slip torque characteristics'),	xlim([0	8]);
+figure;		
+plot(Pout/1000,PF)		
+xlabel('output power KW');		
+ylabel('power factor');		
+grid;		
+title('Slip torque characteristics'),	xlim([0	8]),
+ylim([0 1]);
+
+function z = Induction_motor(x)		
+
+Vph = 460;
+f = 60;
+P = 4;
+ 
+Tst = 715.6276;
+Tmax = 894.5293;
+Tfl = 118.0393;
+pf_fl = 0.9991;
+s = 0.021;
+i_fl = 144.1;
+
+j = sqrt(-1); ws = pi*2*f/P;
+Vth = Vph*x(5)/(x(1) + x(5));
+Rth = x(3)*x(5)/(x(5) + x(1));
+Xth = x(5)*x(1)/(x(1) + x(5)); kt = 3*Vth^2/ws;
+f1 = ((kt*x(4)/(s*((Rth + x(4)/s)^2 + (Xth + x(2))^2))) - Tfl)/Tfl;
+f2 = ((kt*x(4)/(((Rth + x(4))^2 + (Xth + x(2))^2)))
+- Tst)/Tst;
+f3 = ((kt/(2*(Rth + sqrt(Rth^2 +(Xth + x(2))^2)))) - Tmax)/Tmax;
+f4 = (cos(atan((Xth + x(2))/(Rth + x(4)/s))) - pf_fl)/pf_fl;
+f5 = (abs(Vth/((Rth + x(4)) + (Xth + x(2))*j)) - i_fl)/i_fl;
+z = f1^2 + f2^2 + f3^2 + f4^2 + f5^2; end
+
